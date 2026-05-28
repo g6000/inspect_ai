@@ -4,6 +4,7 @@ from unittest.mock import patch
 from inspect_ai._util.content import ContentReasoning
 from inspect_ai.model._providers.openrouter import (
     OPENROUTER_REASONING_DETAILS_SIGNATURE,
+    OpenRouterAPI,
     openrouter_reasoning_details_to_reasoning,
     reasoning_to_openrouter_reasoning_details,
 )
@@ -215,6 +216,35 @@ class TestReasoningToOpenrouterReasoningDetails:
         result = reasoning_to_openrouter_reasoning_details(content)
 
         assert result is None
+
+
+class TestOpenRouterMessages:
+    async def test_deepseek_v4_replays_reasoning_content(self):
+        """DeepSeek v4 requires reasoning_content in assistant tool-call history."""
+        from inspect_ai.model._chat_message import ChatMessageAssistant
+
+        original_details = [
+            {
+                "type": "reasoning.text",
+                "text": "My reasoning",
+                "id": "r1",
+                "format": "deepseek-v4",
+            }
+        ]
+        signature = (
+            f"{OPENROUTER_REASONING_DETAILS_SIGNATURE}{json.dumps(original_details)}"
+        )
+        msg = ChatMessageAssistant(
+            content=[ContentReasoning(reasoning="My reasoning", signature=signature)]
+        )
+
+        api = OpenRouterAPI(
+            model_name="openrouter/deepseek/deepseek-v4-pro", api_key="test-key"
+        )
+        converted = await api.messages_to_openai([msg])
+
+        assert converted[0]["reasoning_content"] == "My reasoning"  # type: ignore[typeddict-item]
+        assert converted[0]["reasoning_details"] == original_details  # type: ignore[typeddict-item]
 
 
 # =============================================================================

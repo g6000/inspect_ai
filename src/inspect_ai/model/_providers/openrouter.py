@@ -175,11 +175,18 @@ class OpenRouterAPI(OpenAICompatibleAPI):
     async def messages_to_openai(
         self, input: list[ChatMessage]
     ) -> list[ChatCompletionMessageParam]:
+        _replay_reasoning_content = _requires_reasoning_content(self.model_name)
+
         # convert reasoning_details to an extra body parameter
         def handle_reasoning_details(
             content: ContentReasoning,
         ) -> dict[str, JsonValue] | str:
             details = reasoning_to_openrouter_reasoning_details(content)
+            if _replay_reasoning_content:
+                reasoning_content: dict[str, JsonValue] = {
+                    "reasoning_content": content.reasoning
+                }
+                return (details or {}) | reasoning_content
             if details is not None:
                 return details
             else:
@@ -262,6 +269,11 @@ class OpenRouterAPI(OpenAICompatibleAPI):
                 params[EXTRA_BODY]["reasoning"] = reasoning
 
         return params
+
+
+def _requires_reasoning_content(model_name: str) -> bool:
+    name = model_name.removeprefix("openrouter/").lower()
+    return name.startswith("deepseek/deepseek-v4")
 
 
 OPENROUTER_REASONING_DETAILS_SIGNATURE = "reasoning-details://"
